@@ -4,12 +4,16 @@
  * Sends keyboard button press and release signals through USB. 
  */
 
-//#include "USB.h"
-//#include "USBHIDKeyboard.h"
+#include "USB.h"
+#include "USBHIDKeyboard.h"
 #include <esp_now.h>
 #include <WiFi.h>
 
 #define ESPNOW_WIFI_CHANNEL 6
+
+USBHIDKeyboard Keyboard;
+
+//#define COMPILE_SERIAL
 
 // REPLACE WITH YOUR TRANSMITTER MAC Address
 uint8_t broadcastAddress[] = {0xDC,0x54,0x75,0xC3,0x07,0x74};
@@ -29,25 +33,33 @@ const char buttonKey[] = {'q','w','e','a','d','z','x','c','7','8','9','4','6','1
 
 // callback when data is sent
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+#ifdef COMPILE_SERIAL
   Serial.print("Last Packet Send Status:\t");
   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+#endif
 }
 
 // callback function that will be executed when data is received
 void OnDataRecv(const esp_now_recv_info *recvInfo, const uint8_t *incomingData, int len) {
   struct_message msg;
   if (len != sizeof(msg))  {
-    Serial.println("Received bad packet.");
+//    Serial.println("Received bad packet.");
     return;
   }
   memcpy((void *)&msg, (void *)incomingData, len);
+#ifdef COMPILE_SERIAL
   Serial.printf("%c is %s\n",buttonKey[msg.buttonNum],(msg.buttonState?"released":"pressed"));
+#endif
+  if (!msg.buttonNum) Keyboard.press(buttonKey[msg.buttonNum]);
+  else Keyboard.release(buttonKey[msg.buttonNum]);
   esp_now_send(recvInfo->src_addr, incomingData, len); // send back to determine latency
 }
 
 void espNowSetup() {
   if (esp_now_init() != ESP_OK) {
-    Serial.println("Error initializing ESP-NOW");
+#ifdef COMPILE_SERIAL
+  Serial.println("Error initializing ESP-NOW");
+#endif
     return;
   }
 
@@ -58,7 +70,7 @@ void espNowSetup() {
   peerInfo.encrypt = false;
 
   if (esp_now_add_peer(&peerInfo) != ESP_OK) {
-    Serial.println("Failed to add peer");
+//    Serial.println("Failed to add peer");
     return;
   }
   
@@ -67,25 +79,33 @@ void espNowSetup() {
 
 void setup() {
   // Initialize Serial Monitor
+#ifdef COMPILE_SERIAL
   Serial.begin(115200);  
   delay(5000);  
   Serial.println("ESP-NOW receive a structure");
+#endif
   // Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
   WiFi.setChannel(ESPNOW_WIFI_CHANNEL);
   while (!WiFi.STA.started()) {
     delay(100);
   }
+#ifdef COMPILE_SERIAL
   Serial.print("ESP32 Board MAC Address:  "); Serial.println(WiFi.macAddress());
+#endif
 
   espNowSetup();
+  Keyboard.begin();
+  USB.begin();
 }
 
 void serialUpdateMAC() {
   static unsigned long lastMACUpdate = 0;
   if (millis() - lastMACUpdate < 10000) return;
   lastMACUpdate = millis();
+#ifdef COMPILE_SERIAL
   Serial.print("ESP32 Board MAC Address:  "); Serial.println(WiFi.macAddress());
+#endif
 }
 
 void loop() {
