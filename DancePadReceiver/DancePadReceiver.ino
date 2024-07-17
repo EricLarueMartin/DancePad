@@ -3,6 +3,13 @@
  * Sends packet back to transmitter for confirmation.
  * Sends keyboard button press and release signals through USB. 
  */
+#ifndef ARDUINO_USB_MODE
+#error This ESP32 SoC has no Native USB interface
+#elif ARDUINO_USB_MODE == 1
+#warning This sketch should be used when USB is in OTG mode
+void setup() {}
+void loop() {}
+#else
 
 #include "USB.h"
 #include "USBHIDKeyboard.h"
@@ -28,8 +35,8 @@ typedef struct struct_message {
   unsigned long timeSent;
 } struct_message;
 
-
-const char buttonKey[] = {'q','w','e','a','d','z','x','c','7','8','9','4','6','1','2','3'};
+const uint8_t buttonKey[] = {'q' ,'w' ,'e' ,'a' ,'d' ,'z' ,'x' ,'c' ,'7' ,'8' ,'9' ,'4' ,'6' ,'1' ,'2' ,'3'};
+//const uint8_t buttonKey[] =   {0x14,0x1A,0x08,0x04,0x07,0x1D,0x1B,0x06,0x5f,0x60,0x61,0x5C,0x5E,0x59,0x5A,0x5B};
 
 // callback when data is sent
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
@@ -50,7 +57,7 @@ void OnDataRecv(const esp_now_recv_info *recvInfo, const uint8_t *incomingData, 
 #ifdef COMPILE_SERIAL
   Serial.printf("%c is %s\n",buttonKey[msg.buttonNum],(msg.buttonState?"released":"pressed"));
 #endif
-  if (!msg.buttonNum) Keyboard.press(buttonKey[msg.buttonNum]);
+  if (!msg.buttonState) Keyboard.press(buttonKey[msg.buttonNum]);
   else Keyboard.release(buttonKey[msg.buttonNum]);
   esp_now_send(recvInfo->src_addr, incomingData, len); // send back to determine latency
 }
@@ -111,3 +118,5 @@ void serialUpdateMAC() {
 void loop() {
 //  serialUpdateMAC();
 }
+
+#endif
