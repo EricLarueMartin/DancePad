@@ -31,12 +31,9 @@ esp_now_peer_info_t peerInfo;
 
 typedef struct struct_message {
   bool buttonState;
-  int buttonNum;
+  uint8_t buttonNum;
   unsigned long timeSent;
 } struct_message;
-
-const uint8_t buttonKey[] = {'q' ,'w' ,'e' ,'a' ,'d' ,'z' ,'x' ,'c' ,'7' ,'8' ,'9' ,'4' ,'6' ,'1' ,'2' ,'3'};
-//const uint8_t buttonKey[] =   {0x14,0x1A,0x08,0x04,0x07,0x1D,0x1B,0x06,0x5f,0x60,0x61,0x5C,0x5E,0x59,0x5A,0x5B};
 
 // callback when data is sent
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
@@ -50,15 +47,18 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 void OnDataRecv(const esp_now_recv_info *recvInfo, const uint8_t *incomingData, int len) {
   struct_message msg;
   if (len != sizeof(msg))  {
-//    Serial.println("Received bad packet.");
+#ifdef COMPILE_SERIAL
+    Serial.println("Received bad packet.");
+#endif
     return;
   }
   memcpy((void *)&msg, (void *)incomingData, len);
 #ifdef COMPILE_SERIAL
-  Serial.printf("%c is %s\n",buttonKey[msg.buttonNum],(msg.buttonState?"released":"pressed"));
+  Serial.printf("%i is %s\n",msg.buttonNum,(msg.buttonState?"released":"pressed"));
 #endif
-  if (!msg.buttonState) Keyboard.press(buttonKey[msg.buttonNum]);
-  else Keyboard.release(buttonKey[msg.buttonNum]);
+  if (!msg.buttonState) Keyboard.press(msg.buttonNum);
+  else if (msg.buttonNum == 0) Keyboard.releaseAll();
+  else Keyboard.release(msg.buttonNum);
   esp_now_send(recvInfo->src_addr, incomingData, len); // send back to determine latency
 }
 
@@ -70,14 +70,18 @@ void espNowSetup() {
     return;
   }
 
-//  esp_now_register_send_cb(OnDataSent);
+#ifdef COMPILE_SERIAL
+  esp_now_register_send_cb(OnDataSent);
+#endif
   
   memcpy(peerInfo.peer_addr, broadcastAddress, 6);
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
 
   if (esp_now_add_peer(&peerInfo) != ESP_OK) {
-//    Serial.println("Failed to add peer");
+#ifdef COMPILE_SERIAL
+    Serial.println("Failed to add peer");
+#endif
     return;
   }
   
@@ -116,7 +120,9 @@ void serialUpdateMAC() {
 }
 
 void loop() {
-//  serialUpdateMAC();
+#ifdef COMPILE_SERIAL
+  serialUpdateMAC();
+#endif
 }
 
 #endif

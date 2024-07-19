@@ -10,8 +10,8 @@
 #include <Adafruit_MCP23X17.h>
 
 #define ESPNOW_WIFI_CHANNEL 6
-
 #define NUM_BUTTONS 16
+
 #define DEBOUNCE_DELAY 30 // will only send button status updates this often for a single button
 
 // REPLACE WITH YOUR RECEIVER MAC Address
@@ -22,7 +22,7 @@ uint8_t broadcastAddress[] = {0xDC,0x54,0x75,0xC2,0x60,0xF0};
 
 typedef struct struct_message {
   bool buttonState;
-  int buttonNum;
+  uint8_t buttonNum;
   unsigned long timeSent;
 } struct_message;
 
@@ -30,8 +30,10 @@ esp_now_peer_info_t peerInfo;
 
 Adafruit_MCP23X17 mcp;
 
-bool buttonState[NUM_BUTTONS];
-unsigned long lastChanged[NUM_BUTTONS];
+const uint8_t buttonKey[] = {'q' ,'w' ,'e' ,'a' ,'d' ,'z' ,'x' ,'c' ,'7' ,'8' ,'9' ,'4' ,'6' ,'1' ,'2' ,'3'};
+
+bool buttonState[256];
+unsigned long lastChanged[256];
 
 // callback when data is sent
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
@@ -112,11 +114,12 @@ void serialUpdateMAC() {
 void mcpLoop() {
   for(int ctPin = 0; ctPin < NUM_BUTTONS; ++ctPin) {
     bool readState = mcp.digitalRead(ctPin);
-    if (readState != buttonState[ctPin] && millis() - lastChanged[ctPin] > DEBOUNCE_DELAY)  {
-      lastChanged[ctPin] = millis();
+    uint8_t buttonNum = buttonKey[ctPin];
+    if (readState != buttonState[buttonNum] && millis() - lastChanged[buttonNum] > DEBOUNCE_DELAY)  {
+      lastChanged[buttonNum] = millis();
       struct_message msg;
       msg.timeSent = millis();
-      msg.buttonNum = ctPin;
+      msg.buttonNum = buttonNum;
       msg.buttonState = readState;
       esp_now_send(broadcastAddress, (uint8_t *)&msg, sizeof(msg));
 //      buttonState[msg.buttonNum] = msg.buttonState;
